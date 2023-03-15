@@ -33,7 +33,7 @@ pipeline {
                         sh "cat deployment.yaml"
                         sh "git add ."
                         sh "git commit -m 'Deployment file updated by Jenkins: ${env.BUILD_NUMBER}'"
-                        sh "git push https://${GIT_USER}:${GIT_PASS}@github.com/${GIT_USERNAME}/Gitops-project-app.git"
+                        sh "git push https://${GIT_USER}:${GIT_PASS}@github.com/${GIT_USER}/Gitops-project-app.git"
                     }
                  }
             }
