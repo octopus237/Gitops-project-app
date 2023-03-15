@@ -1,0 +1,49 @@
+pipeline {
+    agent any
+    environment{
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        IMAGE_NAME = "${DOCKERHUB_USENAME}" + "/" + "${APP_NAME}"
+        REGISTRY_CREDS = 'docker-hub'
+    }
+    
+    stages {
+        stage('Cleanup Workspace'){
+            steps {
+                script {
+                    cleanWs()
+                }
+            }
+        }
+
+        stage('Checkout to main') {
+            steps {
+                git branch: 'main', url: 'https://github.com/octopus237/Gitops-project-app'
+            }
+        }
+        stage('Build image') {
+            steps {
+                script{
+                    docker_image = docker.build "${IMAGE_NAME}"
+                }
+            }
+        }
+        stage('Push image') {
+            steps {
+                script{
+                    docker.withRegistry('', REGISTRY_CREDS) {
+                        docker_image.push("${BUILD_NUMBER}")
+                        docker_image.push('latest')
+                            }
+                        }
+                    }
+                }
+        
+        stage('Trigger CD pipeline') {
+            steps {
+                
+            }
+        }
+        
+          
+  }
+}
