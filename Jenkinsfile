@@ -1,5 +1,7 @@
 pipeline {
-    agent any
+    agent {
+        docker { image 'node:16-alpine' }
+    }
     environment{
         APP_NAME = 'ls-project'
         IMAGE_TAG = "${BUILD_NUMBER}"
