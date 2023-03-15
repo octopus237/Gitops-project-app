@@ -14,6 +14,6 @@ spec:
     production: false
     securityLevel: internal
   policies:
-    path: cluster/global/namespace-specs
+    path: cluster/global/policy
   namespaces:
     - path: manifests
