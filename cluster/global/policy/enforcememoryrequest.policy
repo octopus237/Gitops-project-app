@@ -1,0 +1,58 @@
+apiVersion: securitytower.io/v1alpha2
+kind: Policy
+metadata:
+  name: EnforceMemoryRequest
+spec:
+  version: "1.1.4"
+  description: |
+    Enforces that every container has an appropriate memory requests defined.
+
+    ---
+
+    Note that this policy is part of the following security standards:
+
+    - `bsi/containerization`: BSI IT-Grundschutz "Containerisierung": Section: SYS.1.6.A15
+  kind:
+    - Operational
+    - 'Requests & Limits'
+    - bsi/containerization
+  example: |
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: nginx-deployment
+      labels:
+        app: nginx
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: nginx
+      template:
+        metadata:
+          labels:
+            app: nginx
+        spec:
+          containers:
+            - name: nginx
+              image: nginx:1.14.2
+              ports:
+                - containerPort: 80
+              resources:
+                requests:
+                  cpu: "100m"
+    +             memory: "1G"
+                limits:
+                  cpu: "500m"
+  riskAcceptance:
+    annotationName: securitytower.io/policy.exclusion.enforcememoryrequest
+    example: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: your-deployment
+        annotations:
+          securitytower.io/policy.exclusion.enforcememoryrequest: |-
+            The performance tests are not finished. So we have no information which resources
+            are required by this deployment.
+      ...

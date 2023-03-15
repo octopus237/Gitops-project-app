@@ -1,0 +1,555 @@
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  creationTimestamp: null
+  name: enforcememorylimit
+  annotations:
+    argocd.argoproj.io/sync-wave: "-200"
+    argocd.argoproj.io/sync-options: Prune=false
+    argocd.argoproj.io/compare-options: IgnoreExtraneous
+spec:
+  crd:
+    spec:
+      names:
+        kind: EnforceMemoryLimit
+  targets:
+    - libs:
+        - |-
+          package lib.common.kubernetes
+
+          default is_gatekeeper = false
+
+          container_types := {"containers", "initContainers"}
+
+          is_gatekeeper {
+            has_field(input, "review")
+            has_field(input.review, "object")
+          }
+
+          review = input.review {
+            input.review
+            not input.request
+          }
+
+          else = input.request {
+            input.request
+            not input.review
+          }
+
+          else = {"object": input, "oldObject": null, "operation": "CREATE"} {
+            not input.request
+            not input.review
+          }
+
+          resource = sprintf("%s/%s (%s)", [review.object.kind, review.object.metadata.name, review.object.metadata.namespace]) {
+            review.object.kind
+            review.object.metadata.name
+            review.object.metadata.namespace
+          }
+
+          else = sprintf("%s/%s", [review.object.kind, review.object.metadata.name]) {
+            review.object.kind
+            review.object.metadata.name
+          }
+
+          else = review.object.kind {
+            review.object.kind
+          }
+
+          else = "Unknown" {
+            true
+          }
+
+          objectName = sprintf("%s", [review.object.metadata.name]) {
+            review.object.metadata.name
+          }
+
+          else = "Unknown" {
+            true
+          }
+
+          objectApiVersion = sprintf("%s", [review.object.apiVersion]) {
+            review.object.apiVersion
+          }
+
+          else = "Unknown" {
+            true
+          }
+
+          objectKind = sprintf("%s", [review.object.kind]) {
+            review.object.kind
+          }
+
+          else = "Unknown" {
+            true
+          }
+
+          has_field(object, field) {
+            _ = object[field]
+          }
+
+          inputParams = input.parameters {
+            input.parameters
+          }
+
+          else = data.inventory.parameters {
+            data.inventory.parameters
+          }
+
+          else = set() {
+            true
+          }
+
+          inputObject = {
+            "review": input.review,
+            "parameters": inputParams,
+          } {
+            input.review
+            not input.request
+          }
+
+          else = {"review": input.request, "parameters": inputParams} {
+            input.request
+            not input.review
+          }
+
+          else = {"review": {"object": input, "oldObject": null, "operation": "CREATE"}, "parameters": inputParams} {
+            not input.request
+            not input.review
+          }
+
+          objectNamespace = inputObject.review.object.metadata.namespace {
+            inputObject.review.object.metadata
+            inputObject.review.object.metadata.namespace
+          }
+
+          else = data.inventory.conftestnamespace {
+            data.inventory.conftestnamespace
+          }
+
+          else = "default" {
+            true
+          }
+        - |-
+          package lib.common.messages
+
+          import data.lib.common.kubernetes
+          import data.lib.core.podHelper
+
+          printReasonWithObject(policyName, reason, resource, property, containerName, containerType, validValues) = result {
+            title := sprintf("%v violated: %v\n\n", [policyName, reason])
+            container := getContainerName(containerName)
+            fullField := getFullField(resource, property, containerType)
+            vv := getValidValues(validValues)
+            object := sprintf("object:\n  apiVersion: %v\n  kind: %v\n  metadata:\n    name: %v\n    namespace: %v\n", [kubernetes.objectApiVersion, kubernetes.objectKind, kubernetes.objectName, kubernetes.objectNamespace])
+            jsonPath := getFullXPath(property, containerName, containerType)
+            result := {"msg": concat("", [title, container, fullField, vv, "\n", object, jsonPath])}
+          }
+
+          getValidValues(validValues) = result {
+            validValues != ""
+            result := sprintf("validValues: %v\n", [validValues])
+          }
+
+          else = "" {
+            true
+          }
+
+          getContainerName(containerName) = result {
+            containerName != ""
+            result := sprintf("containerName: %v\n", [containerName])
+          }
+
+          else = "" {
+            true
+          }
+
+          getFullField(resource, property, containerType) = result {
+            resource != ""
+            property != ""
+            result := sprintf("field: %v.%v\n", [resource, property])
+          }
+
+          else = result {
+            property != ""
+            containerType != ""
+            podHelper.storage.specPath != ""
+            result := sprintf("field: %v.%v.%v\n", [podHelper.storage.specPath, containerType, property])
+          }
+
+          else = result {
+            containerType != ""
+            podHelper.storage.specPath != ""
+            result := sprintf("field: %v.%v\n", [podHelper.storage.specPath, containerType])
+          }
+
+          else = result {
+            property != ""
+            podHelper.storage.specPath != ""
+            result := sprintf("field: %v.%v\n", [podHelper.storage.specPath, property])
+          }
+
+          else = result {
+            property != ""
+            result := sprintf("field: %v\n", [property])
+          }
+
+          else = "" {
+            true
+          }
+
+          getFullXPath(property, containerName, containerType) = result {
+            property != ""
+            containerName != ""
+            containerType != ""
+            podHelper.storage.jsonPath != ""
+            result := sprintf("JSONPath: %v.%v[?(@.name == \"%v\")].%v\n", [podHelper.storage.jsonPath, containerType, containerName, property])
+          }
+
+          else = result {
+            containerName != ""
+            containerType != ""
+            podHelper.storage.specPath != ""
+            result := sprintf("JSONPath: %v.%v[?(@.name == \"%v\")]\n", [podHelper.storage.jsonPath, containerType, containerName])
+          }
+
+          else = result {
+            property != ""
+            property != "spec.replicas"
+            not startswith(property, "metadata")
+            podHelper.storage.jsonPath != ""
+            result := sprintf("JSONPath: %v.%v\n", [podHelper.storage.jsonPath, property])
+          }
+
+          else = result {
+            property != ""
+            result := sprintf("JSONPath: .%v\n", [property])
+          }
+
+          else = "" {
+            true
+          }
+        - |-
+          package lib.core.podHelper
+
+          import data.lib.common.kubernetes
+
+          storage = result {
+            validKinds := ["ReplicaSet", "ReplicationController", "Deployment", "StatefulSet", "DaemonSet", "Job"]
+            any([good | good := kubernetes.review.object.kind == validKinds[_]])
+            spec := object.get(kubernetes.review.object, "spec", {})
+            template := object.get(spec, "template", {})
+            result := {
+              "objectSpec": object.get(template, "spec", {}),
+              "objectMetadata": object.get(template, "metadata", {}),
+              "rootMetadata": object.get(kubernetes.review.object, "metadata", {}),
+              "specPath": sprintf("%v.spec.template.spec", [lower(kubernetes.review.object.kind)]),
+              "jsonPath": ".spec.template.spec",
+              "metadataPath": sprintf("%v.spec.template.metadata", [lower(kubernetes.review.object.kind)]),
+            }
+          }
+
+          else = result {
+            kubernetes.review.object.kind == "Pod"
+            result := {
+              "objectSpec": object.get(kubernetes.review.object, "spec", {}),
+              "objectMetadata": object.get(kubernetes.review.object, "metadata", {}),
+              "rootMetadata": object.get(kubernetes.review.object, "metadata", {}),
+              "specPath": sprintf("%v.spec", [lower(kubernetes.review.object.kind)]),
+              "jsonPath": ".spec",
+              "metadataPath": sprintf("%v.metadata", [lower(kubernetes.review.object.kind)]),
+            }
+          }
+
+          else = result {
+            kubernetes.review.object.kind == "CronJob"
+            spec := object.get(kubernetes.review.object, "spec", {})
+            jobTemplate := object.get(spec, "jobTemplate", {})
+            jtSpec := object.get(jobTemplate, "spec", {})
+            jtsTemplate := object.get(jtSpec, "template", {})
+            result := {
+              "objectSpec": object.get(jtsTemplate, "spec", {}),
+              "objectMetadata": object.get(jtsTemplate, "metadata", {}),
+              "rootMetadata": object.get(kubernetes.review.object, "metadata", {}),
+              "specPath": sprintf("%v.spec.jobtemplate.spec.template.spec", [lower(kubernetes.review.object.kind)]),
+              "jsonPath": ".spec.jobtemplate.spec.template.spec",
+              "metadataPath": sprintf("%v.spec.jobtemplate.spec.template.metadata", [lower(kubernetes.review.object.kind)]),
+            }
+          }
+        - |-
+          package lib.common.riskacceptance
+
+          import data.lib.common.kubernetes
+          import data.lib.core.pod
+
+          exclusionAnnotationsPrefixes = [
+            "securitytower.io/policy.exclusion.",
+            "phylake.io/policy.exclusion.",
+            "cloud.syncier.com/policy.exclusion.",
+          ]
+
+          isValidExclusionAnnotation(annotation) {
+            count([it |
+              it := exclusionAnnotationsPrefixes[_]
+              startswith(annotation, it)
+            ]) > 0
+          }
+
+          else = false {
+            true
+          }
+
+          isExclusionAnnotationForConstraint(annotation, constraintName) {
+            count([it |
+              it := exclusionAnnotationsPrefixes[_]
+              exclusionAnnotation := concat("", [it, constraintName])
+              annotation == exclusionAnnotation
+            ]) > 0
+          }
+
+          else = false {
+            true
+          }
+
+          getPolicyExclusionAnnotations(object) = exclusionAnnotations {
+            annotations := object.metadata.annotations
+            not is_null(annotations)
+            exclusionAnnotations := [i |
+              annotations[i]
+              isValidExclusionAnnotation(i)
+            ]
+          }
+
+          else = [] {
+            true
+          }
+
+          getPolicyExclusionAnnotationsOnOwners(object) = exclusionAnnotations {
+            parents := [owner |
+              reference := object.metadata.ownerReferences[_]
+              owner := pod.getOwnerFor(reference, object.metadata.namespace)
+              not is_null(owner)
+            ]
+
+            grandParents := [owner |
+              metadata := parents[_].metadata
+              reference := metadata.ownerReferences[_]
+              owner := pod.getOwnerFor(reference, metadata.namespace)
+              not is_null(owner)
+            ]
+
+            owners := array.concat(parents, grandParents)
+            exclusionAnnotations := [annotation |
+              owners[_].metadata.annotations[annotation]
+              isValidExclusionAnnotation(annotation)
+            ]
+          }
+
+          getPolicyExclusionAnnotationsAtTemplateLevel(object) = exclusionAnnotations {
+            kubernetes.has_field(object, "spec")
+            kubernetes.has_field(object.spec, "template")
+            kubernetes.has_field(object.spec.template, "metadata")
+            kubernetes.has_field(object.spec.template.metadata, "annotations")
+            annotations := object.spec.template.metadata.annotations
+            not is_null(annotations)
+            exclusionAnnotations := [i |
+              annotations[i]
+              isValidExclusionAnnotation(i)
+            ]
+          }
+
+          else = [] {
+            true
+          }
+
+          getPolicyExclusionAnnotationsAtNamespaceLevel(object) = exclusionAnnotations {
+            annotations := data.inventory.cluster.v1.Namespace[kubernetes.objectNamespace].metadata.annotations
+            not is_null(annotations)
+            exclusionAnnotations := [i |
+              annotations[i]
+              isValidExclusionAnnotation(i)
+            ]
+          }
+
+          else = [] {
+            true
+          }
+
+          thereIsExclusionAnnotationForConstraint(constraintName) {
+            not kubernetes.inputParams.ignoreRiskAcceptances
+            exclusionAnnotationsObjectLevel := getPolicyExclusionAnnotations(kubernetes.review.object)
+            exclusionAnnotationsTemplateLevel := getPolicyExclusionAnnotationsAtTemplateLevel(kubernetes.review.object)
+            exclusionAnnotationsNamespaceLevel := getPolicyExclusionAnnotationsAtNamespaceLevel(kubernetes.review.object)
+            exclusionAnnotationsOwners := getPolicyExclusionAnnotationsOnOwners(kubernetes.review.object)
+            exclusionAnnotations := array.concat(exclusionAnnotationsObjectLevel, array.concat(exclusionAnnotationsTemplateLevel, array.concat(exclusionAnnotationsNamespaceLevel, exclusionAnnotationsOwners)))
+
+            count([it |
+              it := exclusionAnnotations[_]
+              isExclusionAnnotationForConstraint(it, constraintName)
+            ]) > 0
+          }
+
+          else = false {
+            true
+          }
+
+          thereIsNoExclusionAnnotationForConstraint(constraintName) {
+            not thereIsExclusionAnnotationForConstraint(constraintName)
+          }
+
+          else = false {
+            true
+          }
+
+          thereIsExclusionAnnotationForConstraintAtTemplateLevel(constraintName) {
+            exclusionAnnotations := getPolicyExclusionAnnotationsAtTemplateLevel(kubernetes.review.object)
+
+            count([it |
+              it := exclusionAnnotations[_]
+              isExclusionAnnotationForConstraint(it, constraintName)
+            ]) > 0
+          }
+
+          else = false {
+            true
+          }
+
+          thereIsNoExclusionAnnotationForConstraintAtTemplateLevel(constraintName) {
+            not thereIsExclusionAnnotationForConstraintAtTemplateLevel(constraintName)
+          }
+        - |-
+          package lib.core.pod
+
+          import data.lib.common.kubernetes
+
+          getOwnerFor(reference, namespace) = owner {
+            is_string(namespace)
+            count(namespace) > 0
+            owner := data.inventory.namespace[namespace][reference.apiVersion][reference.kind][reference.name]
+            not is_null(owner)
+          }
+
+          else = owner {
+            owner := data.inventory.cluster[reference.apiVersion][reference.kind][reference.name]
+            not is_null(owner)
+          }
+
+          else = null {
+            true
+          }
+
+          isRequiresOwnerReferenceCheck(object) {
+            validKinds := ["Pod", "ReplicaSet", "Job"]
+            _ = any([good | good := object.kind == validKinds[_]])
+          }
+
+          validOwnerReference {
+            isRequiresOwnerReferenceCheck(kubernetes.review.object)
+            metadata := kubernetes.review.object.metadata
+            owners := [owner | reference := metadata.ownerReferences[_]; owner := getOwnerFor(reference, metadata.namespace); not is_null(owner)]
+
+            trace(json.marshal({"owners": owners, "references": kubernetes.review.object.metadata.ownerReferences}))
+            count(owners) == count(metadata.ownerReferences)
+          }
+        - |-
+          package lib.common.validators
+
+          isValidEmail(email) {
+            parts := split(email, "@")
+            count(parts) == 2
+            localPart := parts[0]
+            isValidDomain(parts[1])
+
+            count(localPart) <= 64
+            count(localPart) > 0
+          }
+
+          else = false {
+            true
+          }
+
+          isValidDomain(domain) {
+            count(domain) <= 255
+            parts := split(domain, ".")
+            count(parts) >= 2
+            partValid := [valid |
+              part := parts[_]
+              count(part) > 1
+              count(part) < 64
+              re_match("^([a-zA-Z]|[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9])$", part)
+              valid := true
+            ]
+
+            count(partValid) == count(parts)
+          }
+
+          else = false {
+            true
+          }
+
+          isValidCostCenterStringLength(costCenter) {
+            count(costCenter) <= 255
+          }
+
+          else = false {
+            true
+          }
+
+          memoryValueIsValid(value) {
+            memoryValueRegex := "^[^ \t-0]\\d*((E|P|T|G|M|K|)*i*B*|e\\d*)$"
+            re_match(memoryValueRegex, value)
+          }
+
+
+          else = false {
+            true
+          }
+
+          CPUValueIsValid(value) {
+            memoryValueRegex := "^((0\\.[0-9]+)|([0-9]{2,})|[1-9])[m]?$"
+            re_match(memoryValueRegex, value)
+          }
+
+
+          else = false {
+            true
+          }
+      rego: |-
+        package enforcememorylimit
+
+        import data.lib.common.kubernetes
+        import data.lib.common.messages
+        import data.lib.common.riskacceptance
+        import data.lib.common.validators
+        import data.lib.core.podHelper
+
+        violation[msg] {
+          riskacceptance.thereIsNoExclusionAnnotationForConstraint("enforcememorylimit")
+          container_type := kubernetes.container_types[_]
+          container := podHelper.storage.objectSpec[container_type][_]
+
+          not hasMemoryLimit(container)
+          msg := messages.printReasonWithObject("EnforceMemoryLimit", "Memory limit for container must be specified", "", "resources.limits.memory", container.name, container_type, "")
+        }
+
+        violation[msg] {
+          riskacceptance.thereIsNoExclusionAnnotationForConstraint("enforcememorylimit")
+          container_type := kubernetes.container_types[_]
+          container := podHelper.storage.objectSpec[container_type][_]
+
+          not validators.memoryValueIsValid(container.resources.limits.memory)
+          msg := messages.printReasonWithObject("EnforceMemoryLimit", "Memory limit is invalid", "", "resources.limits.memory", container.name, container_type, "")
+        }
+
+        hasMemoryLimit(container) {
+          kubernetes.has_field(container, "resources")
+          kubernetes.has_field(container.resources, "limits")
+          kubernetes.has_field(container.resources.limits, "memory")
+          not is_null(container.resources.limits.memory)
+        }
+
+        else = false {
+          true
+        }
+      target: admission.k8s.gatekeeper.sh
+status: {}

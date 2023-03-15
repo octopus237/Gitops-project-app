@@ -1,0 +1,69 @@
+apiVersion: securitytower.io/v1alpha2
+kind: Policy
+metadata:
+  name: EnforceRunAsNonRoot
+spec:
+  version: "1.1.7"
+  description: |
+    Enforces that every container must run as a non-root user.
+    This is crucial because a containerized process running as root could get the same access as the host root account under certain circumstances.
+    Thus, it is best practice to run the service with user ID 1000 or higher when building a container image.
+    But this is not enforced in any way by default.
+
+    In order to comply to this policy the field `securityContext.runAsNonRoot: true` must be applied on pod or container level.
+    In the example below this leads to further changes.
+    We cannot use the standard image anymore and have to switch to an alternative that actually runs the service with an unprivileged user.
+    Furthermore, port numbers below 1024 are privileged and so we must also change the container port to 8080 (according to the new image).
+
+    ---
+
+    Note that this policy is part of the following security standards:
+
+    - `k8s/restricted`: Heavily restricted policy, following current Pod hardening best practices.
+    - `cis/kubernetes`: CIS Kubernetes Benchmark v1.6.0: Section 5.2.6
+    - `nist/SP.800-190`: NIST Special Publication 800-190 - Application Container Security Guide: Section 3.4.3
+    - `bsi/containerization`: BSI IT-Grundschutz "Containerisierung": Section: SYS.1.6.A17
+  kind:
+    - Security
+    - k8s/restricted
+    - 'Privilege Escalation'
+    - cis/kubernetes
+    - nist/SP.800-190
+    - bsi/containerization
+  example: |
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: nginx-deployment
+      labels:
+        app: nginx
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: nginx
+      template:
+        metadata:
+          labels:
+            app: nginx
+        spec:
+    +     securityContext:
+    +       runAsNonRoot: true
+          containers:
+            - name: nginx
+    -         image: nginx:1.20
+    +         image: nginxinc/nginx-unprivileged:1.20
+              ports:
+    -           - containerPort: 80
+    +           - containerPort: 8080
+  riskAcceptance:
+    annotationName: securitytower.io/policy.exclusion.enforcerunasnonroot
+    example: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: your-deployment
+        annotations:
+          securitytower.io/policy.exclusion.enforcerunasnonroot: |-
+            This pod has a container that must run as root user.
+      ...
