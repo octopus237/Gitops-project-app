@@ -8,7 +8,7 @@ spec:
       resources:
         repository: https://github.com/octopus237/Gitops-project-app.git
         revision: main # git branch name
-        path: manifests
+        path: ./manifests
       targetNamespace: prod
       previousStage: staging
     - name: staging
