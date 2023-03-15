@@ -1,0 +1,9 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: your-deployment
+  annotations:
+    securitytower.io/policy.exclusion.enforcecpurequest: |-
+      This pod consumes an unpredictable amount of CPU.
+...
