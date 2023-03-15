@@ -16,4 +16,4 @@ spec:
   policies:
     path: cluster/global/namespace-specs
   namespaces:
-    - path: cluster/global/
+    - path: manifests
