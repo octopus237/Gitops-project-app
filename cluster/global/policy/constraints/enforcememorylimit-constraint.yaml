@@ -1,0 +1,23 @@
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: EnforceMemoryLimit
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    argocd.argoproj.io/sync-wave: "-100"
+  name: enforcememorylimit
+spec:
+  match:
+    kinds:
+    - apiGroups:
+      - ""
+      - apps
+      - batch
+      kinds:
+      - Pod
+      - ReplicaSet
+      - ReplicationController
+      - Deployment
+      - StatefulSet
+      - DaemonSet
+      - Job
+      - CronJob
