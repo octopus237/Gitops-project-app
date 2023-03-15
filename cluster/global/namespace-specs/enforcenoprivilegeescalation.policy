@@ -1,0 +1,60 @@
+apiVersion: securitytower.io/v1alpha2
+kind: Policy
+metadata:
+  name: EnforceNoPrivilegeEscalation
+spec:
+  version: "1.0.2"
+  description: |
+    Enforces that no container is allowed to escalate its privileges.
+    `allowPrivilegeEscalation` defaults to true, so it must be set to false explicitly.
+
+    ---
+
+    Note that this policy is part of the following security standards:
+
+    - `k8s/restricted`: Heavily restricted policy, following current Pod hardening best practices.
+    - `cis/kubernetes`: CIS Kubernetes Benchmark v1.6.0: Section 5.2.5
+    - `nist/SP.800-190`: NIST Special Publication 800-190 - Application Container Security Guide: Section 3.4.3
+    - `bsi/containerization`: BSI IT-Grundschutz "Containerisierung": Section: SYS.1.6.A17
+  kind:
+    - Security
+    - k8s/restricted
+    - 'Privilege Escalation'
+    - cis/kubernetes
+    - nist/SP.800-190
+    - bsi/containerization
+  example: |
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: nginx-deployment
+      labels:
+        app: nginx
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: nginx
+      template:
+        metadata:
+          labels:
+            app: nginx
+        spec:
+          containers:
+            - name: nginx
+              image: nginx:1.14.2
+              ports:
+                - containerPort: 80
+    +         securityContext:
+    +           allowPrivilegeEscalation: false
+  riskAcceptance:
+    annotationName: securitytower.io/policy.exclusion.enforcenoprivilegeescalation
+    example: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: your-deployment
+        annotations:
+          securitytower.io/policy.exclusion.enforcenoprivilegeescalation: |-
+            This container must escalate its privileges in order to function correctly.
+      ...

@@ -1,0 +1,55 @@
+apiVersion: securitytower.io/v1alpha2
+kind: Policy
+metadata:
+  name: EnforceMemoryLimit
+spec:
+  version: "1.1.4"
+  description: |
+    Enforces that a memory limit is specified for every container.
+
+    ---
+
+    Note that this policy is part of the following security standards:
+
+    - `bsi/containerization`: BSI IT-Grundschutz "Containerisierung": Section: SYS.1.6.A15
+  kind:
+    - Operational
+    - 'Requests & Limits'
+    - bsi/containerization
+  example: |
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: nginx-deployment
+      labels:
+        app: nginx
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: nginx
+      template:
+        metadata:
+          labels:
+            app: nginx
+        spec:
+          containers:
+            - name: nginx
+              image: nginx:1.14.2
+              ports:
+                - containerPort: 80
+              resources:
+                limits:
+                  cpu: "250m"
+    +             memory: "1G"
+  riskAcceptance:
+    annotationName: securitytower.io/policy.exclusion.enforcememorylimit
+    example: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: your-deployment
+        annotations:
+          securitytower.io/policy.exclusion.enforcememorylimit: |-
+            This pod consumes an unpredictable amount of memory.
+      ...
