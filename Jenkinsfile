@@ -38,5 +38,11 @@ pipeline {
                  }
             }
         }
+        
+        stage('Notify the Gitops team'){
+            steps{
+                discordSend description: 'Jenkins succesfully built and deployed version: ${DOCKERTAG}', footer: 'Large Systems Project', image: '', link: env.BUILD_URL, result: currentBuild.currentResult, title: 'discord notifier', webhookURL: 'https://discord.com/api/webhooks/1085999261877030942/uJ-bws-LGiyHi1ORxp4cY4by8aiX-AXciU3p_FEef8k9R-4o00IvhOaO_xBwjf_5aLTv'
+            }
+        }
     }
 }
