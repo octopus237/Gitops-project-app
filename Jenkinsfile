@@ -1,7 +1,7 @@
 pipeline {
     agent any
     environment{
-        APP_NAME = 'ls-project'
+        APP_NAME = 'ls-gitops'
         IMAGE_TAG = "${BUILD_NUMBER}"
         IMAGE_NAME = "${DOCKERHUB_USENAME}" + "/" + "${APP_NAME}"
         REGISTRY_CREDS = 'docker-hub'
