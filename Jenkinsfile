@@ -41,7 +41,7 @@ pipeline {
         
         stage('Notify the Gitops team'){
             steps{
-                discordSend description: '**Jenkins build result of app:** env.DOCKERHUB_USENAME/env.APP_NAME:env.DOCKERTAG', footer: 'Large Systems Project', link: env.BUILD_URL, successful: true, result: currentBuild.currentResult, title: 'discord notifier', webhookURL: 'https://discord.com/api/webhooks/1085999261877030942/uJ-bws-LGiyHi1ORxp4cY4by8aiX-AXciU3p_FEef8k9R-4o00IvhOaO_xBwjf_5aLTv'
+                discordSend description: '**Jenkins build status**, footer: 'Large Systems Project', link: env.BUILD_URL, successful: true, result: currentBuild.currentResult, title: 'discord notifier', webhookURL: 'https://discord.com/api/webhooks/1085999261877030942/uJ-bws-LGiyHi1ORxp4cY4by8aiX-AXciU3p_FEef8k9R-4o00IvhOaO_xBwjf_5aLTv'
             }
         }
     }
