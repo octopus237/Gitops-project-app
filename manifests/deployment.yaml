@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: flask-deployment
-        image: jobri237/ls-gitops:18
+        image: jobri237/ls-gitops:19
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 2000
