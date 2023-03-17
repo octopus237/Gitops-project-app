@@ -26,7 +26,7 @@
 apiVersion: networking.k8s.io/v1
 # UPDATE API
 kind: Ingress
-#metadata:
+metadata:
   name: ingress-service
   namespace: a0008
   annotations:
